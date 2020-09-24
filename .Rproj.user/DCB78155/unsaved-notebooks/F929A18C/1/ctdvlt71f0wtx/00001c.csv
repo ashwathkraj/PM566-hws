@@ -1,0 +1,16 @@
+"0","if(!file.exists(tmp2)){
+  download.file(
+    url = url1,
+    destfile = tmp2
+    #method = ""libcurl"", timeout = 1000
+  )
+}
+"
+"2","trying URL 'https://raw.githubusercontent.com/USCbiostats/data-science-data/master/01_chs/chs_regional.csv'
+"
+"2","Content type 'text/plain; charset=utf-8'"
+"2"," length 2168 bytes
+"
+"2","downloaded 2168 bytes
+
+"
