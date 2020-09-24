@@ -1,0 +1,38 @@
+---
+title: "homework2"
+author: "Ashwath Raj"
+date: "September 23, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(readr)
+library(tidyverse)
+library(dtplyr)
+library(dplyr)
+
+#url1 <- "https://raw.github.com/USCbiostats/data-science-data/blob/master/01_chs/chs_individual.csv"
+url1 <- "https://raw.githubusercontent.com/USCbiostats/data-science-data/master/01_chs/chs_individual.csv"
+url1 <- "https://raw.githubusercontent.com/USCbiostats/data-science-data/master/01_chs/chs_regional.csv"
+
+tmp1 <- "chs_individual.csv"
+tmp2 <- "chs_regional.csv"
+
+if(!file.exists(tmp2)){
+  download.file(
+    url = url1,
+    destfile = tmp2
+    #method = "libcurl", timeout = 1000
+  )
+}
+
+chs_individual <- data.table::fread(tmp1)
+chs_regional <- data.table::fread(tmp2)
+
+```
+
