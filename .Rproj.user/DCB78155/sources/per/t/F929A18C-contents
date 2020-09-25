@@ -34,5 +34,62 @@ if(!file.exists(tmp2)){
 chs_individual <- data.table::fread(tmp1)
 chs_regional <- data.table::fread(tmp2)
 
+ind <- chs_individual
+reg <- chs_regional
+
+```
+
+
+```{r}
+
+chs <- merge(x = ind, 
+      y = reg, 
+      by.x = "townname",
+      by.y = "townname",
+      all.x = TRUE,
+      all.y = TRUE
+      ) 
+
+chs2 <- ind %>%
+  full_join(reg, by = "townname")
+
+#1 
+nrow(chs)
+
+chsdt2 <- lazy_dt(chs, immutable = FALSE)
+
+#2
+chsdt <-
+  chsdt %>%
+  mutate(obesity_level = cut(
+    bmi,
+    breaks = c(0,14, 22, 24, 100),
+    labels = c("underweight", "normal", "overweight", "obese")
+    )
+  )
+
+chsdt[, .(
+  min_bmi = min(bmi),
+  max_bmi = max(bmi)
+),
+by = obesity_level
+][order(obesity_level)]
+
+nrow(dat)
+```
+
+
+
+
+
+
+```{r}
+chsdt[, .(
+  min_bmi = min(bmi),
+  max_bmi = max(bmi)
+),
+by = obesity_level
+][order(obesity_level)] %>% head(n=4)
+
 ```
 

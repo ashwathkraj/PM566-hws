@@ -15,6 +15,7 @@ library(readr)
 library(tidyverse)
 library(dtplyr)
 library(dplyr)
+library(data.table)
 
 #url1 <- "https://raw.github.com/USCbiostats/data-science-data/blob/master/01_chs/chs_individual.csv"
 url1 <- "https://raw.githubusercontent.com/USCbiostats/data-science-data/master/01_chs/chs_individual.csv"
@@ -34,5 +35,159 @@ if(!file.exists(tmp2)){
 chs_individual <- data.table::fread(tmp1)
 chs_regional <- data.table::fread(tmp2)
 
+ind <- chs_individual
+reg <- chs_regional
+
 ```
 
+
+```{r}
+
+chs <- merge(x = ind, 
+      y = reg, 
+      by.x = "townname",
+      by.y = "townname",
+      all.x = TRUE,
+      all.y = TRUE
+      ) 
+
+chs2 <- ind %>%
+  full_join(reg, by = "townname")
+
+#1 
+nrow(chs)
+
+chsdt <- lazy_dt(chs, immutable = FALSE)
+
+factors = c("underweight", "normal", "overweight", "obese")
+
+#2
+chs <-
+  chs %>%
+  mutate(obesity_level = cut(
+    bmi,
+    breaks = c(0,14, 22, 24, 100),
+    labels = factors
+    )
+  )
+
+chs %>% group_by(obesity_level) %>%
+  summarise(
+    min_bmi = min(bmi),
+    max_bmi = max(bmi)
+  ) %>% arrange(obesity_level) %>% head(n=4)
+
+chs %>%
+  group_by(obesity_level) %>%
+  count()
+
+
+#is.data.table(chsdt2)
+chsdt <- data.table(chs)
+
+# #3 
+#throws error
+# as.data.table(chsdt)[, .(
+#  smoke_gas_exposure := {(smoke & !gasstove) | (!smoke & gasstove)}
+# )]
+
+#4
+chs %>% group_by(townname, male, obesity_level) %>%
+  summarise(
+  fev_avg := mean(fev),
+  fev_sd := sd(fev),
+  asthma_ind = mean(asthma)
+)
+#, smoke_gas_exposure
+
+
+#5
+#impute values by male and hispanic
+chs[, bmi_imp := fcoalesce(bmi, mean(bmi, na.rm=TRUE)),
+      by = .(male, hispanic)]
+
+```
+
+
+
+```{r}
+library(ggplot2)
+
+#1
+chsdt <- as.data.frame(chs)
+chsdt %>%
+  filter(!(bmi %in% NA | fev %in% NA))  %>%
+  ggplot() +
+  geom_point(mapping = aes(x = bmi, y = fev, color = townname)) +
+  facet_wrap(~ townname) +
+  geom_smooth(aes(x = bmi, y=fev), method = lm) 
+  
+#2
+chsdt %>%
+  filter(!(bmi %in% NA | fev %in% NA))  %>%
+  ggplot(aes(x=fev, color=obesity_level)) +
+  geom_histogram() +
+  theme(legend.position= "top")
+chsdt %>%
+  filter(!(bmi %in% NA | fev %in% NA))  %>%
+  ggplot(aes(x=fev, color=)) +
+  geom_histogram() +
+  theme(legend.position= "top")
+
+#3
+ggplot(data = chsdt, aes(x = smoke, y= bmi_imp)) + 
+  geom_bar(stat = "identity", fill = "pink")
+ggplot(data = chsdt, aes(x = gasstove, y= bmi_imp)) + 
+  geom_bar(stat = "identity", fill = 'steelblue')
+
+#4
+as.data.frame(chsdt) %>%
+  filter(!(bmi %in% NA | fev %in% NA))  %>%
+  ggplot() + 
+    stat_summary(mapping = aes(x = bmi, y = fev),
+    fun.min = min,
+    fun.max = max,
+    fun = median)
+
+as.data.frame(chsdt) %>%
+  filter(!(bmi %in% NA | fev %in% NA))  %>%
+  ggplot() + 
+    stat_summary(mapping = aes(x = smoke, y = fev),
+    fun.min = min,
+    fun.max = max,
+    fun = median)
+
+
+as.data.frame(chsdt) %>%
+  filter(!(bmi %in% NA | fev %in% NA))  %>%
+  ggplot() + 
+    stat_summary(mapping = aes(x = gasstove, y = fev),
+    fun.min = min,
+    fun.max = max,
+    fun = median)
+
+#5
+library(leaflet)
+chsdt %>%
+  filter(!(bmi %in% NA | fev %in% NA))
+
+
+pm_map <- leaflet(chsdt) %>%
+  addProviderTiles('CartoDB.Positron') %>% 
+  addCircles(lat=~lat, lng=~lon, label=~paste0(round(pm25_mass,2),' c'), opacity =1, fillOpacity = 1, radius = 500)
+pm_map
+
+#6
+chsdt %>%
+  filter(!(pm25_mass %in% NA | fev %in% NA))  %>%
+  ggplot() +
+  geom_point(mapping = aes(x = pm25_mass, y = fev), position ='jitter') 
+
+
+
+```
+
+
+1. From scatter plots, it appears that fev increases with bmi
+2. Smoke and gas exposure decrease FEV
+3. PM2.5 exposure has fairly regular relaionship with FEV
