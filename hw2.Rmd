@@ -168,9 +168,6 @@ as.data.frame(chsdt) %>%
 
 #5
 library(leaflet)
-chsdt %>%
-  filter(!(bmi %in% NA | fev %in% NA))
-
 
 pm_map <- leaflet(chsdt) %>%
   addProviderTiles('CartoDB.Positron') %>% 
