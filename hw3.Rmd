@@ -3,14 +3,6 @@ title: "Assignment 3"
 output: html_document
 ---
 
-```{r}
-knitr::opts_chunk$set(include  = FALSE)
-install.packages("httr")
-install.packages("xml2")
-install.packages("stringr")
-install.packages("rvest")
-```
-
 
 ```{r setup}
 knitr::opts_chunk$set(include  = TRUE)
@@ -29,7 +21,7 @@ https://pubmed.ncbi.nlm.nih.gov/?term=sars-cov-2+trial+vaccine+
 
 Complete the lines of code:
 
-```{r counter-pubmed, eval=FALSE}
+```{r counter-pubmed, eval=TRUE}
 # Downloading the website
 website <- xml2::read_html("https://pubmed.ncbi.nlm.nih.gov/?term=sars-cov-2+trial+vaccine+")
 
@@ -42,23 +34,26 @@ counts <- as.character(counts)
 # Extracting the data using regex
 stringr::str_extract(counts, "[0-9,]+")
 ```
+I was able to find 600 papers
 
-```{r papers-covid-hawaii, eval=FALSE}
+
+```{r papers-covid-hawaii, eval=TRUE}
 library(httr)
 query_ids <- GET(
   url   = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
   query = list(db= 'pubmed',
                term = 'sars-cov2 trial vaccine',
                rettype = 'abstract',
-                  retmax= '250')
+                  retmax= 250)
 )
 
 # Extracting the content of the response of GET
 ids <- httr::content(query_ids)
 ```
+Why am I only getting 4 results from querying?
 
 
-```{r get-ids, eval = FALSE}
+```{r get-ids, eval = TRUE}
 # Turn the result into a character vector
 ids <- as.character(ids)
 
@@ -72,8 +67,10 @@ ids <- stringr::str_remove_all(ids, "<Id>|</Id>")
 ```
 
     
-```{r get-abstracts, eval = FALSE}
+```{r get-abstracts, eval = TRUE}
+ids2 <- ids
 ids <- paste(ids, collapse=",")
+
 
 publications <- GET(
   url   = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
@@ -91,13 +88,13 @@ publications_txt <- as.character(publications)
 ```
 
 
-```{r one-string-per-response, eval = FALSE}
+```{r one-string-per-response, eval = TRUE}
 pub_char_list <- xml2::xml_children(publications)
 pub_char_list <- sapply(pub_char_list, as.character)
 ```
 
 ```{r extracting-last-bit, eval = TRUE}
-pub_char_list
+# pub_char_list
 
 abstracts <- str_extract(pub_char_list, "<Abstract>(\\n|.)+</Abstract>")
 abstracts <- str_remove_all(abstracts, "</?[[:alnum:]]+>")
@@ -105,30 +102,47 @@ abstracts <- str_replace_all(abstracts, "\\s+", " ")
 table(is.na(abstracts))
 ```
 
-```{r process-titles, eval = FALSE}
+```{r process-titles, eval = TRUE}
 titles <- str_extract(pub_char_list, "<ArticleTitle>(\\n|.)+</ArticleTitle>")
 titles <- str_remove_all(titles, "</?[[:alnum:]]+>")
 titles <- str_replace_all(titles, "\\s+", " ")
 titles
 ```
 
+```{r}
+journal <- str_extract(pub_char_list, "<Title>(\\n|.)+</Title>")
+journal <- str_remove_all(journal, "</?[[:alnum:]]+>")
+journal <- str_replace_all(journal, "\\s+", " ")
+journal
+```
 
-```{r build-db, eval = FALSE}
+```{r}
+pubdate <- str_extract(pub_char_list, "<PubDate>(\\n|.)+</PubDate>")
+pubdate <- str_remove_all(pubdate, "</?[[:alnum:]]+>")
+pubdate <- str_replace_all(pubdate, "\\s+", " ")
+pubdate
+
+```
+
+
+```{r build-db, eval = TRUE}
 database <- data.frame(
-  pubmed_id = ids,
+  pubmed_id = ids2,
   title = titles,
-  name = ###
-  date = ###
+  journal = journal,
+  pubdate = pubdate,
   abstract = abstracts
 )
 knitr::kable(database)
 ```
 
 
-############ Text Mining #############
+############ Text Mining ############
 
 ```{r}
 library(readr)
+library(tidytext)
+library(tidyverse)
 pubmeds <- read_csv('https://raw.githubusercontent.com/USCbiostats/data-science-data/master/03_pubmed/pubmed.csv')
 
 #count tokens in absracts
@@ -149,32 +163,26 @@ Before stop words, the counts include many articles. After, the main words inclu
 
 
 ```{r}
-bigrams<- pubmeds %>%
-  unnest_ngrams(token, input = abstract, n = 2, collapse = FALSE) %>%
-  separate (col = token, into = c("word1","word2"), sep = " ") %>%
-  select(word1,word2)
 
-bigrams %>%
-  count (word1, word2 , sort=TRUE)
-  
-bigrams %>%
-  filter(!(word1 %in% as.character(seq(0,100)))) %>%
-  filter(!(word2 %in% as.character(seq(0,100)))) %>%
-  anti_join(
-    stop_words%>% select(word), by = c("word1" = "word")
-  ) %>%
-  anti_join(
-    stop_words %>% select(word), by = c("word2" = "word")
-  ) %>%
-  count(word1,word2, sort= TRUE)%>%
+pubmeds %>%
+  unnest_ngrams(word, input = abstract, n = 2) %>%
+  anti_join(stop_words) %>%
+  filter(!(word %in% as.character(seq(0,100)))) %>%
+  count(word, sort=TRUE) %>%
   top_n(10, n) %>%
-  ggplot(aes(x = n, y = fct_reorder(word1,n))) + 
+  ggplot(aes(x = n, y = fct_reorder(word,n))) + 
   geom_col()
 
 ```
 
+###Question: How can I add stopwords to bigram visualization?
+
+
 ```{r}
-
+pubmeds %>%
+  unnest_tokens(token, abstract)%>%
+  count(token, term) %>%
+  bind_tf_idf(token, term, n) %>%
+  arrange(desc(tf_idf))
 ```
-
-
+The top five tokens are covid, prostate, eclampsia,  preeclampsia, and meningitis. These terms are more medically/condition specific than in quesiton 1. Before, there were generic terms like disease, cancer, and patient.
