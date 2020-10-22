@@ -18,6 +18,7 @@ library("httr")
 library("xml2")
 library("stringr")
 library("rvest")
+library(tidyverse)
 
 ```
 
@@ -135,22 +136,44 @@ pubmeds %>%
   unnest_tokens(output=token, input = abstract) %>%
   count(token, sort=TRUE)
 
+#stop words
 pubmeds %>%
   unnest_tokens(word, input = abstract) %>%
   anti_join(stop_words) %>%
   filter(!(word %in% as.character(seq(0,100)))) %>%
   count(word, sort=TRUE) 
 
+```
 
-pubmeds %>%
-  unnest_tokens(output=token, input = abstract) %>%
-  count(token, sort=TRUE) %>%
-  top_n(20, n) %>%
-  ggplot(aes(x = n, y = fct_reorder(token,n))) + 
+Before stop words, the counts include many articles. After, the main words include covid and other terms related to medical conditions, time states, and approaches. Covid, patients, cancer, prostate, and disease are the top 5 tokens.
+
+
+```{r}
+bigrams<- pubmeds %>%
+  unnest_ngrams(token, input = abstract, n = 2, collapse = FALSE) %>%
+  separate (col = token, into = c("word1","word2"), sep = " ") %>%
+  select(word1,word2)
+
+bigrams %>%
+  count (word1, word2 , sort=TRUE)
+  
+bigrams %>%
+  filter(!(word1 %in% as.character(seq(0,100)))) %>%
+  filter(!(word2 %in% as.character(seq(0,100)))) %>%
+  anti_join(
+    stop_words%>% select(word), by = c("word1" = "word")
+  ) %>%
+  anti_join(
+    stop_words %>% select(word), by = c("word2" = "word")
+  ) %>%
+  count(word1,word2, sort= TRUE)%>%
+  top_n(10, n) %>%
+  ggplot(aes(x = n, y = fct_reorder(word1,n))) + 
   geom_col()
 
+```
 
-
+```{r}
 
 ```
 
