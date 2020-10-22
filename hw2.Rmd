@@ -87,9 +87,9 @@ chsdt <- data.table(chs)
 
 # #3 
 #throws error
-# as.data.table(chsdt)[, .(
-#  smoke_gas_exposure := {(smoke & !gasstove) | (!smoke & gasstove)}
-# )]
+as.data.table(chs)[, .(
+ smoke_gas_exposure := {(smoke | gasstove)}
+)]
 
 #4
 chs %>% group_by(townname, male, obesity_level) %>%
